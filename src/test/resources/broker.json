@@ -1,0 +1,8 @@
+{
+"host" : "e2f060298f8e445e8806e0302c4105af.s2.eu.hivemq.cloud",
+"username" : "dev01",
+"password" : "Secret33",
+"topic" : "my/test/topic",
+"port" : 8883,
+"websocketPort" :8884
+}
