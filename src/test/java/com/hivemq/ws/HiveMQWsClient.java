@@ -7,9 +7,7 @@ import java.io.IOException;
 import java.util.function.Consumer;
 
 import org.springframework.http.HttpMethod;
-import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.web.client.RequestCallback;
 import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestTemplate;
 
@@ -71,8 +69,23 @@ public class HiveMQWsClient {
 		template.postForLocation(Endpoints.send(host, id, topic), payload);		
 	}
 	
-	public void receive(String id, String topic, Consumer<ClientHttpResponse> callback) {
-		template.execute(Endpoints.receive(host, id, topic), HttpMethod.GET, null, new ResponseExtractor<Void>() {
+	public <T> T receive(String id, String topic, Class<T> type) {
+		return template.getForObject(Endpoints.receive(host, id, topic)+"?n=1", type);
+	}
+
+	public void subscribe(String id, String topic, Consumer<ClientHttpResponse> callback) {
+		subscribe(id, topic, null, callback);
+	}
+
+	public void subscribe(String id, String topic, Integer n, Consumer<ClientHttpResponse> callback) {
+		String params = "";
+		if (n!=null) {
+			params += "n="+n;
+		}
+		if (!params.isEmpty()) {
+			params = "?" + params;
+		}
+		template.execute(Endpoints.receive(host, id, topic) + params, HttpMethod.GET, null, new ResponseExtractor<Void>() {
 
 					@Override
 					public Void extractData(ClientHttpResponse response) throws IOException {
@@ -80,7 +93,7 @@ public class HiveMQWsClient {
 						return null;
 					}
 				}
-		);
-		
+		);		
 	}
+
 }

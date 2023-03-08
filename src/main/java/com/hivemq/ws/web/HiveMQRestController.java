@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.DeferredResult;
 
@@ -25,6 +26,7 @@ import com.hivemq.client.mqtt.mqtt3.message.publish.Mqtt3Publish;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import com.hivemq.ws.dao.BrokerRepository;
 import com.hivemq.ws.domain.Broker;
+import com.hivemq.ws.manager.BrokerManager;
 import com.hivemq.ws.util.HiveMQTemplate;
 import com.hivemq.ws.util.HiveMQTemplate.ClientHolder;
 
@@ -42,6 +44,9 @@ public class HiveMQRestController {
 	@Autowired
 	private BrokerRepository repository;
 	
+	@Autowired
+    private BrokerManager manager;
+
 	@PutMapping("/{broker}")
 	public ResponseEntity<Void> setupBroker(@PathVariable("broker") String id, @RequestBody  Broker broker) {
 		logger.info("setupBroker:" + id + " " + broker);
@@ -67,7 +72,6 @@ public class HiveMQRestController {
 		return ResponseEntity.noContent().build();
 	}
 
-
 	@PostMapping("/{broker}/send/{topic}")
 	public ResponseEntity<Void> send(@PathVariable("broker") String id, @PathVariable("topic") String topic, @RequestBody  Object payload) {
 		logger.info("send:" + id + " " + topic + " " + payload);
@@ -78,11 +82,10 @@ public class HiveMQRestController {
 
 		try {
 			//logger.info("send:" + id + " " + broker);
-			HiveMQTemplate template = new HiveMQTemplate();
-			//MqttClient client = template.connect(broker);
-			//sleep(2*1000);
 			logger.info("send:" + id + " " + payload);
-			template.send(broker, topic, payload);
+
+			manager.send(broker, topic, payload);
+			
 			return ResponseEntity.noContent().build();			
 		} catch (RuntimeException e){
 			e.printStackTrace();
@@ -92,7 +95,9 @@ public class HiveMQRestController {
 
 
 	@GetMapping("/{broker}/receive/{topic}")
-	public DeferredResult<String> receive(@PathVariable("broker") String id, @PathVariable("topic") String topic, final HttpServletResponse response) {
+	public DeferredResult<String> receive(@PathVariable("broker") String id, @PathVariable("topic") String topic, 
+			@RequestParam(required = false, value="n") Integer n,
+			final HttpServletResponse response) {
 		logger.info("receive:" + id + " " + topic);
 
 		long timeout = Long.MAX_VALUE;
@@ -111,6 +116,10 @@ public class HiveMQRestController {
 
 			HiveMQTemplate template = new HiveMQTemplate();
 			ClientHolder client = new ClientHolder();
+			class IntWrapper {
+				int n;
+			}
+			IntWrapper recv = new IntWrapper();
 			client.client = template.connectAndSubscribe(broker, topic, publish -> {
 					ByteBuffer payload = null;
 					if (broker.isVersion5()) {
@@ -122,14 +131,17 @@ public class HiveMQRestController {
 					System.out.println("Rx: @" + topic + ": " + payload_);
 		
 					try {
-						//OutputStream out = response.getOutputStream();
-						//PrintWriter writer = new PrintWriter(out);
 						writer.println(payload_);
 						writer.flush();
-					}  catch (Exception e) {
+					} catch (RuntimeException e) {
 						System.err.println(e);
 						//result.setErrorResult(new RuntimeException());
 		                //template.disconnect(broker, client.client);
+					}
+					recv.n++;
+					if (n!=null && n.equals(recv.n)) {
+						result.setResult("");
+		                template.disconnect(broker, client.client);
 					}
 			}, (connAck, throwable) -> {
 				if (throwable!=null) {
@@ -150,15 +162,15 @@ public class HiveMQRestController {
 		}	
 		return result;
 	}
+
 	
-	
-	//alt implementation
-	@GetMapping("/{broker}/receive2/{topic}")
+	//alt implementation TODO: implement as Servlet
+	@GetMapping("/{broker}/receive_/{topic}")
 	public void receive2(@PathVariable("broker") String id, @PathVariable("topic") String topic, final HttpServletRequest request) throws IOException {
-		logger.info("receive:2" + id + " " + topic);
+		logger.info("receive_:" + id + " " + topic);
 		AsyncContext asyncContext = request.startAsync();
 
-		logger.info("receive2:" + id + " " + topic);
+		logger.info("receive_:" + id + " " + topic);
 
 
 		Broker broker = repository.find(id);
@@ -178,7 +190,7 @@ public class HiveMQRestController {
 				payload = ((Mqtt3Publish)publish).getPayload().get();		
 			}
 			String payload_ = UTF_8.decode(payload).toString();
-			System.out.println("Rx: @" + topic + ": " + payload_);
+			System.out.println("Rx_: @" + topic + ": " + payload_);
 
 			try {
 				OutputStream out = asyncContext.getResponse().getOutputStream();
@@ -215,12 +227,6 @@ public class HiveMQRestController {
 
 	}
 
-	public static void sleep(int milis) {
-		System.out.println("Waiting " + milis + "...");
-		try {
-			Thread.sleep(10*1000);
-		} catch (InterruptedException e) {
-		}
-	}
+
 
 }
