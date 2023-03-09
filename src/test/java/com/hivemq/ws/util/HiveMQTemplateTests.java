@@ -18,7 +18,7 @@ public class HiveMQTemplateTests {
 	public static final String clientId = null;
 	public static final String username = "dev01";
 	public static final String password = "Secret33";
-	public static final String topic = "testtopic";
+	public static final String topic = "atopic";
 	public static final int port=8883;
 	public static final int websocketPort = 8884;
     

@@ -3,8 +3,8 @@
  */
 package com.hivemq.ws.dao;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.hivemq.ws.domain.Broker;
 
@@ -14,7 +14,7 @@ import com.hivemq.ws.domain.Broker;
 public class SimpleBrokerRepository implements BrokerRepository {
 
 
-	private Map<String, Broker> brokers = new HashMap<>();
+	private Map<String, Broker> brokers = new ConcurrentHashMap<>();
 	
 	/**
 	 * 

@@ -10,6 +10,8 @@ import java.nio.ByteBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -72,6 +74,11 @@ public class HiveMQRestController {
 		return ResponseEntity.noContent().build();
 	}
 
+	@PostMapping(value="/{broker}/send/{topic}", consumes=MediaType.APPLICATION_OCTET_STREAM_VALUE)
+	public ResponseEntity<Void> send(@PathVariable("broker") String id, @PathVariable("topic") String topic, @RequestBody byte[] payload) {
+		return send(id, topic, (Object)payload);
+	}
+
 	@PostMapping("/{broker}/send/{topic}")
 	public ResponseEntity<Void> send(@PathVariable("broker") String id, @PathVariable("topic") String topic, @RequestBody  Object payload) {
 		logger.info("send:" + id + " " + topic + " " + payload);
@@ -97,6 +104,7 @@ public class HiveMQRestController {
 	@GetMapping("/{broker}/receive/{topic}")
 	public DeferredResult<String> receive(@PathVariable("broker") String id, @PathVariable("topic") String topic, 
 			@RequestParam(required = false, value="n") Integer n,
+			final HttpServletRequest request,
 			final HttpServletResponse response) {
 		logger.info("receive:" + id + " " + topic);
 
@@ -110,9 +118,19 @@ public class HiveMQRestController {
 			//return ResponseEntity.notFound().build();
 		}
 		try {
+			String contentType = MediaType.APPLICATION_OCTET_STREAM.toString();
+			String accept = request.getHeader(HttpHeaders.ACCEPT);
+			if (accept!=null) {
+				String[] accepts = accept.split(",");
+				if (accepts.length>0) {
+					accept = accepts[0];
+				}
+				//TODO (optional): support integration with HttpMessageConverters
+				//contenType = accept;
+			}
+			response.setHeader(HttpHeaders.CONTENT_TYPE, contentType);
 
 			OutputStream out = response.getOutputStream();
-			PrintWriter writer = new PrintWriter(out);
 
 			HiveMQTemplate template = new HiveMQTemplate();
 			ClientHolder client = new ClientHolder();
@@ -129,10 +147,14 @@ public class HiveMQRestController {
 					}
 					String payload_ = UTF_8.decode(payload).toString();
 					System.out.println("Rx: @" + topic + ": " + payload_);
-		
+					byte[] bytes = payload_.getBytes();
 					try {
-						writer.println(payload_);
-						writer.flush();
+						out.write(bytes);
+						out.flush();
+					} catch (IOException e) {
+						System.err.println(e);
+						result.setErrorResult(e);
+		                template.disconnect(broker, client.client);
 					} catch (RuntimeException e) {
 						System.err.println(e);
 						//result.setErrorResult(new RuntimeException());
