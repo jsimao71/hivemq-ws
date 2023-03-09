@@ -176,10 +176,11 @@ System.out.println("client.receive:" + payload_);
 ## TODO / FutureWork
 
 + HTML/JS frontweb to test WebSockets
++ Add persistent `BrokerRepository` (select DB)
 + Test Dockerfile on Docker and Kubernetes
 + Refactor and test HiveMQClient.subscribe with Reactive/Streaming API
-+ Integrate with HttpMessageConverter
-+ Separate code in 3 different repositories: hivemq-template, hivemq-ws, hivemq-ws-client
++ Integrate WS receive with HttpMessageConverter
++ Separate code in 3 different repositories for better reuse: hivemq-template, hivemq-ws, hivemq-ws-client
 
 
 
